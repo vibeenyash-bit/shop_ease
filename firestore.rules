@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Paste this into Firebase Console -> Firestore Database -> Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Orders live under users/{uid}/orders/{orderId}.
+    // orderId is generated on the device (UUID) and doubles as the idempotency key.
+    match /users/{uid}/orders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Create only. Orders are immutable once placed, so a retried request can
+      // never overwrite or duplicate an existing order.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.id == orderId
+        && request.resource.data.userId == uid
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.total is number;
+
+      allow update, delete: if false;
+    }
+  }
+}
